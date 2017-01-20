@@ -233,6 +233,11 @@ public final class FileChecksumCrawler implements Iterable<Map.Entry<Path, FileC
 		return this.checksumMap.size();
 	}
 
+	public long sizeInBytes()
+	{
+		return this.checksumMap.values().stream().mapToLong(FileChecksum::getFileSize).sum();
+	}
+
 	private FileChecksumCrawler getDuplicate(HashSet<FileChecksum> excluded)
 	{
 		FileChecksumCrawler duplicate = new FileChecksumCrawler(this.hashAlgorithm);

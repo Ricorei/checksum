@@ -279,8 +279,9 @@ public final class Main
 					break;
 				case "--delete":
 
-					String warningMessage = "You are going to delete %d files from %s listed inside %s. Are you sure ? (y/n)";
-					System.out.println(String.format(warningMessage, rightIndexer.size(), leftFilename, rightFilename));
+					String warningMessage = "You are going to delete %d files from %s listed inside %s ( Size : %d Kb | %d Mb). Are you sure ? (y/n)";
+					System.out.println(String.format(warningMessage, rightIndexer.size(), leftFilename, rightFilename,
+						rightIndexer.sizeInBytes() / 1024,rightIndexer.sizeInBytes() / 1024 / 1024));
 
 					try(Scanner sis = new Scanner(System.in))
 					{
