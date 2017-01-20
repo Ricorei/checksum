@@ -35,6 +35,7 @@ import static java.util.Objects.requireNonNull;
  * Duplicate : one of every duplicate.<br/>
  * Unique : all without duplicate.<br/>
  * </p>
+ *
  * @author Ricorei
  */
 public final class FileChecksumCrawler implements Iterable<Map.Entry<Path, FileChecksum>>
@@ -188,21 +189,13 @@ public final class FileChecksumCrawler implements Iterable<Map.Entry<Path, FileC
 		return this.checksumMap.size();
 	}
 
-	/**
-	 * Returns an exclusive list of duplicate ( by checksum ) files.<br/>
-	 * If A and B are identical it will include A or B but not both.<br/>
-	 * If C has no duplicate, C is not included.<br/>
-	 *
-	 * @return an exclusive list of duplicate ( by checksum ) files
-	 */
-	public FileChecksumCrawler getDuplicate()
+	private FileChecksumCrawler getDuplicate(HashSet<FileChecksum> excluded)
 	{
 		FileChecksumCrawler duplicate = new FileChecksumCrawler(this.hashAlgorithm);
-		HashSet<FileChecksum> processedChecksum = new HashSet<>();
 
 		this.checksumMap.forEach(((path, fileChecksum) ->
 		{
-			if( !processedChecksum.add(fileChecksum) )
+			if( !excluded.add(fileChecksum) )
 			{
 				duplicate.checksumMap.put(path, fileChecksum);
 			}
@@ -211,87 +204,88 @@ public final class FileChecksumCrawler implements Iterable<Map.Entry<Path, FileC
 		return duplicate;
 	}
 
-	/**
-	 * Returns an exclusive list of duplicate ( by checksum ) files.<br/>
-	 * If A and B are identical it will include A or B but not both.<br/>
-	 * If C has a duplicate in the specified set, C is included.
-	 * Nothing from the specified set is included.
-	 *
-	 * @param checksumToRemove
-	 * @return an exclusive list of distinct ( by checksum ) files
-	 */
-	public FileChecksumCrawler getDuplicate(FileChecksumCrawler checksumToRemove)
-	{
-		HashMap<FileChecksum, Path> retains = new HashMap<>();
-
-		// retains only first occurrences
-		this.checksumMap.forEach((path, fileChecksum) -> retains.putIfAbsent(fileChecksum, path));
-
-		// remove all occurrences from the specified map
-		checksumToRemove.checksumMap.forEach((path, fileChecksum) ->
-		{
-			if( !retains.containsKey(fileChecksum) )
-			{
-				retains.remove(fileChecksum);
-			}
-		});
-
-		FileChecksumCrawler distinct = new FileChecksumCrawler(this.hashAlgorithm);
-		retains.forEach((fileChecksum, path) -> distinct.checksumMap.put(path, fileChecksum));
-		return distinct;
-	}
-
-	/**
-	 * Returns an exclusive list of distinct ( by checksum ) files.<br/>
-	 * If A and B are identical it will include A or B but not both.<br/>
-	 * If C has no duplicate, C is included.<br/>
-	 *
-	 * @return an exclusive list of distinct ( by checksum ) files
-	 */
-	public FileChecksumCrawler getDistinct()
+	private FileChecksumCrawler getDistinct(HashSet<FileChecksum> included)
 	{
 		FileChecksumCrawler distinct = new FileChecksumCrawler(this.hashAlgorithm);
-		HashSet<FileChecksum> processedChecksum = new HashSet<>();
-
 		this.checksumMap.forEach(((path, fileChecksum) ->
 		{
-			if( processedChecksum.add(fileChecksum) )
+			if( included.add(fileChecksum) )
 			{
 				distinct.checksumMap.put(path, fileChecksum);
 			}
 		}));
-
 		return distinct;
+	}
+
+	private HashSet<FileChecksum> getUniqueChecksumSet()
+	{
+		HashSet<FileChecksum> uniqueSet = new HashSet<>();
+		this.checksumMap.forEach((path, checksum) -> uniqueSet.add(checksum));
+		return uniqueSet;
+	}
+
+	/**
+	 * Returns an exclusive list of duplicate ( by checksum ) files.<br/>
+	 * <p>
+	 * The returned list contains files matching those rules :<br/>
+	 * <ul>
+	 * <li>Only the second or more occurences of every file is included.</li>
+	 * </ul>
+	 * </p>
+	 *
+	 * @return an exclusive list of duplicate ( by checksum ) files
+	 */
+	public FileChecksumCrawler getDuplicate()
+	{
+		return getDuplicate(new HashSet<>());
+	}
+
+	/**
+	 * Returns an exclusive list of duplicate ( by checksum ) files.<br/>
+	 * <p>
+	 * The returned list contains files matching those rules :<br/>
+	 * <ul>
+	 * <li>Only the second or more occurences of every file is included.</li>
+	 * <li>All files from the specified set are considered as the first occurrence.</li>
+	 * </ul>
+	 * </p>
+	 *
+	 * @return an exclusive list of duplicate ( by checksum ) files
+	 */
+	public FileChecksumCrawler getDuplicate(FileChecksumCrawler checksumToRemove)
+	{
+		return getDuplicate(checksumToRemove.getUniqueChecksumSet());
 	}
 
 	/**
 	 * Returns an exclusive list of distinct ( by checksum ) files.<br/>
-	 * If A and B are identical it will include A or B but not both.<br/>
-	 * If C has a duplicate in the specified set, C is ignored.
-	 * Nothing from the specified set is included.
-	 *
-	 * @param checksumToRemove
+	 * <p>
+	 * The returned list contains files matching those rules :<br/>
+	 * <ul>
+	 * <li>Only the first occurrence of every file is included.</li>
+	 * </ul>
+	 *</p>
+	 * @return an exclusive list of distinct ( by checksum ) files
+	 */
+	public FileChecksumCrawler getDistinct()
+	{
+		return getDistinct(new HashSet<>());
+	}
+
+	/**
+	 * Returns an exclusive list of distinct ( by checksum ) files.<br/>
+	 * <p>
+	 * The returned list contains files matching those rules :<br/>
+	 * <ul>
+	 * <li>Only the first occurrence of every file is included.</li>
+	 * <li>All files from the specified set are considered as the first occurrence.</li>
+	 * </ul>
+	 *</p>
 	 * @return an exclusive list of distinct ( by checksum ) files
 	 */
 	public FileChecksumCrawler getDistinct(FileChecksumCrawler checksumToRemove)
 	{
-		HashMap<FileChecksum, Path> retains = new HashMap<>();
-
-		// retains only first occurrences
-		this.checksumMap.forEach((path, fileChecksum) -> retains.putIfAbsent(fileChecksum, path));
-
-		// remove all occurrences from the specified map
-		checksumToRemove.checksumMap.forEach((path, fileChecksum) ->
-		{
-			if( retains.containsKey(fileChecksum) )
-			{
-				retains.remove(fileChecksum);
-			}
-		});
-
-		FileChecksumCrawler distinct = new FileChecksumCrawler(this.hashAlgorithm);
-		retains.forEach((fileChecksum, path) -> distinct.checksumMap.put(path, fileChecksum));
-		return distinct;
+		return getDistinct(checksumToRemove.getUniqueChecksumSet());
 	}
 
 	@Override
