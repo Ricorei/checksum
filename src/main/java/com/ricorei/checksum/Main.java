@@ -273,8 +273,8 @@ public final class Main
 					break;
 				case "--delete":
 
-					String warningMessage = "You are going to delete files from %s listed inside %s. Are you sure ? (y/n)";
-					System.out.println(String.format(warningMessage, leftFilename, rightFilename));
+					String warningMessage = "You are going to delete %d files from %s listed inside %s. Are you sure ? (y/n)";
+					System.out.println(String.format(warningMessage, rightIndexer.size(), leftFilename, rightFilename));
 
 					try(Scanner sis = new Scanner(System.in))
 					{
