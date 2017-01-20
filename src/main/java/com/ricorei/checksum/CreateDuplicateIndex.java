@@ -30,7 +30,7 @@ public final class CreateDuplicateIndex
 			FileChecksumCrawler fileIndex = new FileChecksumCrawler();
 
 			System.out.println("Indexing " + workingPath.toString() + ". This may takes a while ...");
-			Files.walkFileTree(workingPath, fileIndex);
+			fileIndex.walk(workingPath, s -> {}, (p,a) -> {});
 			fileIndex = fileIndex.getDuplicate();
 
 			Path fileName = Paths.get(workingPath.getFileName() + ".fsum");

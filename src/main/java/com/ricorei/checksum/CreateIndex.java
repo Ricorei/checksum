@@ -30,7 +30,7 @@ public final class CreateIndex
 			FileChecksumCrawler fileIndex = new FileChecksumCrawler();
 
 			System.out.println("Indexing " + workingPath.toString() + ". This may takes a while ...");
-			Files.walkFileTree(workingPath, fileIndex);
+			fileIndex.walk(workingPath, s -> {}, (p,a) -> {});
 
 			Path fileName = Paths.get(workingPath.getFileName() + ".fsum");
 
