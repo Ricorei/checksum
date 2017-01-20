@@ -158,8 +158,14 @@ public final class Main
 			ProgressBar progressBar = new ProgressBar();
 
 			System.out.println("Indexing " + workingPath.toString() + ". This may takes a while ...");
-			fileIndex.walk(workingPath, progressBar::setTotalCompletionValue,
-				(filePath, attrs) -> progressBar.displayProgress(attrs.size()));
+
+			String analyse = "%d files for a total size of %d bytes (%d Mb)";
+
+			fileIndex.walk(workingPath, (fileCount, totalSize) ->
+			{
+				System.out.println(String.format(analyse, fileCount, totalSize, totalSize / 1024 / 1024));
+				progressBar.setTotalCompletionValue(totalSize);
+			}, (filePath, attrs) -> progressBar.displayProgress(attrs.size()));
 
 			Path fileName = Paths.get(workingPath.getFileName() + FILE_EXT);
 

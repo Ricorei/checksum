@@ -23,7 +23,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
-import java.util.function.LongConsumer;
 
 import static java.util.Objects.requireNonNull;
 
@@ -98,7 +97,7 @@ public final class FileChecksumCrawler implements Iterable<Map.Entry<Path, FileC
 		return Optional.ofNullable(fileChecksum);
 	}
 
-	public void walk(Path path, LongConsumer totalSizeConsumer, BiConsumer<Path, BasicFileAttributes> progressConsumer)
+	public void walk(Path path, BiConsumer<Long, Long> totalSizeConsumer, BiConsumer<Path, BasicFileAttributes> progressConsumer)
 	{
 		requireNonNull(path);
 		requireNonNull(totalSizeConsumer);
@@ -106,9 +105,13 @@ public final class FileChecksumCrawler implements Iterable<Map.Entry<Path, FileC
 
 		try
 		{
-			long totalSize = Files.walk(path).filter(p -> p.toFile().isFile()).mapToLong(p -> p.toFile().length()).sum();
+			long[] fileCount = new long[]{0}; // little hack
+			long totalSize = Files.walk(path).filter(p -> p.toFile().isFile()).mapToLong(p -> {
+				fileCount[0]++;
+				return p.toFile().length();
+			}).sum();
 
-			totalSizeConsumer.accept(totalSize);
+			totalSizeConsumer.accept(fileCount[0], totalSize);
 
 			this.checksumMap.clear();
 			Files.walkFileTree(path, new SimpleFileVisitor<Path>()
