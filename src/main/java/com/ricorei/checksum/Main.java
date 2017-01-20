@@ -313,19 +313,20 @@ public final class Main
 	{
 		private long totalSize;
 		private long currentSize;
+		private long iterations;
+		private long oldIterations;
 
 		public ProgressBar()
 		{
-			this.totalSize = 0;
-			this.currentSize = 0;
+			setTotalSize(0);
 		}
 
 		private int getPercentage(long size)
 		{
-			return (int)(((double) size / (double) this.totalSize) * 100d);
+			return (int) (((double) size / (double) this.totalSize) * 100d);
 		}
 
-		private static String getPercentageDisplayString(int percentage)
+		private String getPercentageDisplayString(int percentage)
 		{
 			if( percentage == 0 )
 			{
@@ -334,7 +335,9 @@ public final class Main
 
 			if( percentage % 10 == 0 )
 			{
-				return " " + percentage + "%\n";
+				long diffIterations = this.iterations - this.oldIterations;
+				this.oldIterations = this.iterations;
+				return " " + percentage + "% over " + this.iterations + " iterations (+" + diffIterations + ")\n";
 			}
 			else
 			{
@@ -346,10 +349,13 @@ public final class Main
 		{
 			this.totalSize = size;
 			this.currentSize = 0;
+			this.iterations = 0;
+			this.oldIterations = 0;
 		}
 
 		public void displayProgress(long addedSize)
 		{
+			this.iterations += 1;
 			int oldPercentage = getPercentage(this.currentSize);
 			this.currentSize += addedSize;
 			int currentPercentage = getPercentage(this.currentSize);
@@ -358,7 +364,6 @@ public final class Main
 			{
 				oldPercentage += 1;
 				System.out.print(getPercentageDisplayString((int) oldPercentage));
-
 			}
 		}
 	}
