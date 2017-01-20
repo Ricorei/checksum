@@ -3,10 +3,13 @@ package com.ricorei.checksum;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Scanner;
+import java.util.UUID;
 import java.util.function.BiConsumer;
 
 import static java.util.Objects.requireNonNull;
@@ -113,15 +116,15 @@ public final class Main
 	{
 		this.commands = new Commands();
 
-		Command extractCommand = new Command("extract");
-		extractCommand.setOptions(Arrays.asList("--distinct", "--duplicate", "--unique"));
+		Command extractCommand = new Command(ActionCommand.COMMAND_NAME);
+		extractCommand.setOptions(Arrays.asList("--distinct", "--duplicate", "--unique", "--delete"));
 		extractCommand.setShortMan(
 			"[--distinct|--duplicate|--unique] [workingFile]" + FILE_EXT + " [[againstFile]" + FILE_EXT + "]");
 
 		Command indexCommand = new Command("index");
 		indexCommand.setShortMan("path [[path2] ... [pathN]]");
 
-		this.commands.add(extractCommand, ExtractCommand::run);
+		this.commands.add(extractCommand, ActionCommand::run);
 		this.commands.add(indexCommand, IndexCommand::run);
 	}
 
@@ -152,10 +155,10 @@ public final class Main
 
 			FileChecksumCrawler fileIndex = new FileChecksumCrawler();
 
-			final ProgressBar progressBar = new ProgressBar();
+			ProgressBar progressBar = new ProgressBar();
 
 			System.out.println("Indexing " + workingPath.toString() + ". This may takes a while ...");
-			fileIndex.walk(workingPath, progressBar::setTotalSize,
+			fileIndex.walk(workingPath, progressBar::setTotalCompletionValue,
 				(filePath, attrs) -> progressBar.displayProgress(attrs.size()));
 
 			Path fileName = Paths.get(workingPath.getFileName() + FILE_EXT);
@@ -166,9 +169,11 @@ public final class Main
 		}
 	}
 
-	private static final class ExtractCommand
+	private static final class ActionCommand
 	{
-		private ExtractCommand()
+		private static final String COMMAND_NAME = "action";
+
+		private ActionCommand()
 		{
 
 		}
@@ -191,7 +196,7 @@ public final class Main
 
 			if( args.length == 3 )
 			{
-				extractCommand(option, args[2], null);
+				extractCommand(option, args[2], args[2]);
 			}
 
 			if( args.length == 4 )
@@ -207,45 +212,120 @@ public final class Main
 				return;
 			}
 
-			if( rightFilename != null )
+			if( !isValidFile(rightFilename) )
 			{
-				if( !isValidFile(rightFilename) )
-				{
-					return;
-				}
+				return;
 			}
 
 			FileChecksumCrawler leftIndexer = new FileChecksumCrawler();
 			FileChecksumCrawler rightIndexer = new FileChecksumCrawler();
 
 			leftIndexer.importFromFile(Paths.get(leftFilename));
+			rightIndexer.importFromFile(Paths.get(rightFilename));
 
-			if( rightFilename != null )
-			{
-				rightIndexer.importFromFile(Paths.get(rightFilename));
-			}
+			FileChecksumCrawler indexerToExport = null;
 
-			FileChecksumCrawler diff = null;
+			String indexerToExportName = UUID.randomUUID().toString();
 
 			switch(option)
 			{
 				case "--duplicate":
-					diff = leftIndexer.getDuplicate(rightIndexer);
+
+					if( leftFilename.equals(rightFilename) )
+					{
+						indexerToExport = leftIndexer.getDuplicate();
+					}
+					else
+					{
+						indexerToExport = leftIndexer.getDuplicate(rightIndexer);
+					}
+
+					indexerToExportName = removeExtension(leftFilename) + "-duplicate";
 					break;
 				case "--distinct":
-					diff = leftIndexer.getDistinct(rightIndexer);
+
+					if( leftFilename.equals(rightFilename) )
+					{
+						indexerToExport = leftIndexer.getDistinct();
+					}
+					else
+					{
+						indexerToExport = leftIndexer.getDistinct(rightIndexer);
+					}
+
+					indexerToExportName = removeExtension(leftFilename) + "-distinct";
 					break;
 				case "--unique":
+
 					// TODO implements unique diff
-					System.out.println("--unique is not implemented yet");
+					if( leftFilename.equals(rightFilename) )
+					{
+						System.out.println("--unique is not implemented yet");
+						//indexerToExport = leftIndexer.getUnique();
+					}
+					else
+					{
+						System.out.println("--unique is not implemented yet");
+						//indexerToExport = leftIndexer.getUnique(rightIndexer);
+					}
+
+					indexerToExportName = removeExtension(leftFilename) + "-unique";
+					break;
+				case "--delete":
+
+					String warningMessage = "You are going to delete files from %s listed inside %s. Are you sure ? (y/n)";
+					System.out.println(String.format(warningMessage, leftFilename, rightFilename));
+
+					try(Scanner sis = new Scanner(System.in))
+					{
+						if( sis.hasNext() )
+						{
+							String answer = sis.next();
+
+							if( answer.equals("y") )
+							{
+								ProgressBar progressBar = new ProgressBar();
+								progressBar.setTotalCompletionValue(rightIndexer.size());
+
+								ArrayList<Path> errors = new ArrayList<>();
+								ArrayList<Path> deleted = new ArrayList<>();
+
+								leftIndexer.deleteFiles(rightIndexer, p ->
+								{
+									deleted.add(p);
+									progressBar.displayProgress(1);
+								}, p ->
+								{
+
+									errors.add(p);
+									progressBar.displayProgress(1);
+								});
+
+								indexerToExportName = removeExtension(leftFilename) + "-delete";
+								indexerToExport = leftIndexer;
+							}
+						}
+					}
+
 					break;
 			}
 
-			if( diff != null )
+			if( indexerToExport != null )
 			{
-				diff.exportToFile(Paths.get("diff" + FILE_EXT));
+				indexerToExport.exportToFile(Paths.get(indexerToExportName + FILE_EXT));
 			}
 		}
+	}
+
+	private static String removeExtension(String file)
+	{
+		int dotIndex = file.lastIndexOf(".");
+		if( dotIndex == -1 )
+		{
+			return file;
+		}
+
+		return file.substring(0, dotIndex);
 	}
 
 	private static boolean isValidFile(String file)
@@ -311,19 +391,19 @@ public final class Main
 
 	private static final class ProgressBar
 	{
-		private long totalSize;
-		private long currentSize;
+		private long maximum;
+		private long currentProgress;
 		private long iterations;
 		private long oldIterations;
 
 		public ProgressBar()
 		{
-			setTotalSize(0);
+			setTotalCompletionValue(0);
 		}
 
-		private int getPercentage(long size)
+		private int getPercentage(long progress)
 		{
-			return (int) (((double) size / (double) this.totalSize) * 100d);
+			return (int) (((double) progress / (double) this.maximum) * 100d);
 		}
 
 		private String getPercentageDisplayString(int percentage)
@@ -345,25 +425,25 @@ public final class Main
 			}
 		}
 
-		public void setTotalSize(long size)
+		public void setTotalCompletionValue(long completionValue)
 		{
-			this.totalSize = size;
-			this.currentSize = 0;
+			this.maximum = completionValue;
+			this.currentProgress = 0;
 			this.iterations = 0;
 			this.oldIterations = 0;
 		}
 
-		public void displayProgress(long addedSize)
+		public void displayProgress(long addedProgress)
 		{
 			this.iterations += 1;
-			int oldPercentage = getPercentage(this.currentSize);
-			this.currentSize += addedSize;
-			int currentPercentage = getPercentage(this.currentSize);
+			int oldPercentage = getPercentage(this.currentProgress);
+			this.currentProgress += addedProgress;
+			int currentPercentage = getPercentage(this.currentProgress);
 
 			while( oldPercentage < currentPercentage )
 			{
 				oldPercentage += 1;
-				System.out.print(getPercentageDisplayString((int) oldPercentage));
+				System.out.print(getPercentageDisplayString(oldPercentage));
 			}
 		}
 	}

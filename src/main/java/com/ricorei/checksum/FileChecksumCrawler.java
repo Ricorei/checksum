@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.LongConsumer;
 
 import static java.util.Objects.requireNonNull;
@@ -100,6 +101,8 @@ public final class FileChecksumCrawler implements Iterable<Map.Entry<Path, FileC
 	public void walk(Path path, LongConsumer totalSizeConsumer, BiConsumer<Path, BasicFileAttributes> progressConsumer)
 	{
 		requireNonNull(path);
+		requireNonNull(totalSizeConsumer);
+		requireNonNull(progressConsumer);
 
 		try
 		{
@@ -127,6 +130,44 @@ public final class FileChecksumCrawler implements Iterable<Map.Entry<Path, FileC
 		catch(IOException e)
 		{
 			e.printStackTrace();
+		}
+	}
+
+	public void deleteFiles(FileChecksumCrawler removeAll, Consumer<Path> removedConsumer, Consumer<Path> errorConsumer)
+	{
+		requireNonNull(removeAll);
+		requireNonNull(removedConsumer);
+		requireNonNull(errorConsumer);
+
+		// avoid concurrent modification exception if this == specified
+		HashSet<Path> pathToDelete = removeAll.getUniquePathSet();
+
+		for( Path path : pathToDelete )
+		{
+			if( !this.checksumMap.containsKey(path) )
+			{
+				errorConsumer.accept(path);
+				continue;
+			}
+
+			if( !Files.isRegularFile(path) )
+			{
+				errorConsumer.accept(path);
+				continue;
+			}
+
+			this.checksumMap.remove(path);
+			removedConsumer.accept(path);
+
+			try
+			{
+				Files.delete(path);
+
+			}
+			catch(IOException e)
+			{
+				e.printStackTrace();
+			}
 		}
 	}
 
@@ -224,6 +265,13 @@ public final class FileChecksumCrawler implements Iterable<Map.Entry<Path, FileC
 		return uniqueSet;
 	}
 
+	private HashSet<Path> getUniquePathSet()
+	{
+		HashSet<Path> uniqueSet = new HashSet<>();
+		this.checksumMap.forEach((path, checksum) -> uniqueSet.add(path));
+		return uniqueSet;
+	}
+
 	/**
 	 * Returns an exclusive list of duplicate ( by checksum ) files.<br/>
 	 * <p>
@@ -264,7 +312,8 @@ public final class FileChecksumCrawler implements Iterable<Map.Entry<Path, FileC
 	 * <ul>
 	 * <li>Only the first occurrence of every file is included.</li>
 	 * </ul>
-	 *</p>
+	 * </p>
+	 *
 	 * @return an exclusive list of distinct ( by checksum ) files
 	 */
 	public FileChecksumCrawler getDistinct()
@@ -280,7 +329,8 @@ public final class FileChecksumCrawler implements Iterable<Map.Entry<Path, FileC
 	 * <li>Only the first occurrence of every file is included.</li>
 	 * <li>All files from the specified set are considered as the first occurrence.</li>
 	 * </ul>
-	 *</p>
+	 * </p>
+	 *
 	 * @return an exclusive list of distinct ( by checksum ) files
 	 */
 	public FileChecksumCrawler getDistinct(FileChecksumCrawler checksumToRemove)
