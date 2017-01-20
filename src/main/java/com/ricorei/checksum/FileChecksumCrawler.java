@@ -229,7 +229,7 @@ public final class FileChecksumCrawler implements Iterable<Map.Entry<Path, FileC
 	 * <p>
 	 * The returned list contains files matching those rules :<br/>
 	 * <ul>
-	 * <li>Only the second or more occurences of every file is included.</li>
+	 * <li>Only the second or more occurrences of every file are included.</li>
 	 * </ul>
 	 * </p>
 	 *
@@ -245,7 +245,7 @@ public final class FileChecksumCrawler implements Iterable<Map.Entry<Path, FileC
 	 * <p>
 	 * The returned list contains files matching those rules :<br/>
 	 * <ul>
-	 * <li>Only the second or more occurences of every file is included.</li>
+	 * <li>Only the second or more occurrences of every file are included.</li>
 	 * <li>All files from the specified set are considered as the first occurrence.</li>
 	 * </ul>
 	 * </p>
