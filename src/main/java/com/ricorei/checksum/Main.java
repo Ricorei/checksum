@@ -152,12 +152,11 @@ public final class Main
 
 			FileChecksumCrawler fileIndex = new FileChecksumCrawler();
 
+			final ProgressBar progressBar = new ProgressBar();
+
 			System.out.println("Indexing " + workingPath.toString() + ". This may takes a while ...");
-			fileIndex.walk(workingPath, s ->
-			{
-			}, (p, a) ->
-			{
-			});
+			fileIndex.walk(workingPath, progressBar::setTotalSize,
+				(filePath, attrs) -> progressBar.displayProgress(attrs.size()));
 
 			Path fileName = Paths.get(workingPath.getFileName() + FILE_EXT);
 
@@ -249,7 +248,6 @@ public final class Main
 		}
 	}
 
-
 	private static boolean isValidFile(String file)
 	{
 		if( file == null )
@@ -309,5 +307,59 @@ public final class Main
 		}
 
 		main.commands.run(commandName, args);
+	}
+
+	private static final class ProgressBar
+	{
+		private long totalSize;
+		private long currentSize;
+
+		public ProgressBar()
+		{
+			this.totalSize = 0;
+			this.currentSize = 0;
+		}
+
+		private int getPercentage(long size)
+		{
+			return (int)(((double) size / (double) this.totalSize) * 100d);
+		}
+
+		private static String getPercentageDisplayString(int percentage)
+		{
+			if( percentage == 0 )
+			{
+				return "";
+			}
+
+			if( percentage % 10 == 0 )
+			{
+				return " " + percentage + "%\n";
+			}
+			else
+			{
+				return ".";
+			}
+		}
+
+		public void setTotalSize(long size)
+		{
+			this.totalSize = size;
+			this.currentSize = 0;
+		}
+
+		public void displayProgress(long addedSize)
+		{
+			int oldPercentage = getPercentage(this.currentSize);
+			this.currentSize += addedSize;
+			int currentPercentage = getPercentage(this.currentSize);
+
+			while( oldPercentage < currentPercentage )
+			{
+				oldPercentage += 1;
+				System.out.print(getPercentageDisplayString((int) oldPercentage));
+
+			}
+		}
 	}
 }
